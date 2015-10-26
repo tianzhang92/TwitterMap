@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Twitter Map</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 100%;  	
+      }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&libraries=visualization"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css"
+          href="css/bootstrap.min.css"/>
+    <link rel="stylesheet" type="text/css"
+          href="css/bootstrap-theme.min.css"/>
+
+    <script>
+
+	var map, heatmap, pointArray;
+	var wsUri;
+	var websocket;
+	var taxiData;
+	var init_time = 48*60*60;
+
+	function onOpen(evt) {
+    	websocket.send(init_time);
+    	alert("open!");
+	}
+	
+    function onMessage(evt) {
+    	var data = JSON.parse(evt.data);
+    	// update heatmap
+		pointArray.push(new google.maps.LatLng(data.lat, data.lon));
+		console.log(data);
+    	if(data.kw == "sports"){
+    		pointArray_sports.push(new google.maps.LatLng(data.lat,data.lon));
+    		console.log(data);
+    	}else if(data.kw == "food"){
+    		pointArray_food.push(new google.maps.LatLng(data.lat,data.lon));
+    	}else if(data.kw == "news"){
+    		pointArray_news.push(new google.maps.LatLng(data.lat,data.lon));	
+		}
+    }
+
+    function onError(evt) {
+        writeToScreen('ERROR: ' + evt.data);
+    }
+
+    function filter(){
+    	var val=document.getElementById("filter").value;
+    	
+    	switch (val) {
+    		case "all":
+    			heatmap.setMap(map);
+    			heatmap_sports.setMap(null);
+    			heatmap_food.setMap(null);
+    			heatmap_news.setMap(null);
+    			break;
+    		case "sports":
+    			heatmap_sports.setMap(map);
+    			heatmap.setMap(null);
+    			heatmap_food.setMap(null);
+    			heatmap_news.setMap(null);
+    			break;
+    		case "food":
+    			heatmap_food.setMap(map);
+    			heatmap_sports.setMap(null);
+    			heatmap.setMap(null);
+    			heatmap_news.setMap(null);
+    			break;
+    		case "news":
+    			heatmap_news.setMap(map);
+    			heatmap_sports.setMap(null);
+    			heatmap_food.setMap(null);
+    			heatmap.setMap(null);
+    			break;
+    	}
+    }
+    
+	function initialize() {
+		websocket = new WebSocket(wsUri);
+		websocket.onopen = function(evt){
+			onOpen(evt);
+		}
+		websocket.onmessage = function(evt){
+			//writeToScreen("Trying to connect!");
+			onMessage(evt);
+		}
+		websocket.onerror = function(evt){
+			onError(evt);
+		}
+		map = new google.maps.Map(document.getElementById('map'), {
+		    zoom: 2,
+		    center: new google.maps.LatLng(0, 0),
+		    mapTypeId: google.maps.MapTypeId.SATELLITE
+		  });
+
+		pointArray = new google.maps.MVCArray(taxiData);
+		pointArray_sports = new google.maps.MVCArray(taxiData);
+		pointArray_food = new google.maps.MVCArray(taxiData);
+		pointArray_news = new google.maps.MVCArray(taxiData);
+		
+	    heatmap = new google.maps.visualization.HeatmapLayer({
+	      data: pointArray,
+	    });
+	    heatmap_sports = new google.maps.visualization.HeatmapLayer({
+		  data: pointArray_sports,
+	    });
+	    heatmap_food = new google.maps.visualization.HeatmapLayer({
+	      data: pointArray_food,
+	    });
+	    heatmap_news = new google.maps.visualization.HeatmapLayer({
+	      data: pointArray_news,
+	    });	 
+
+		heatmap.setMap(map);
+	}
+
+	function writeToScreen(message) {
+        var pre = document.createElement("p");
+        pre.style.wordWrap = "break-word";
+        pre.innerHTML = message;
+        output.appendChild(pre);
+    }
+
+
+	google.maps.event.addDomListener(window, 'load', initialize);
+    </script>
+  </head>
+
+  <body>
+	<div class="navbar navbar-default navbar-static-top">
+	    <div class="container">
+	        <div class="navbar-header">
+	            <a class="navbar-brand" href="index.html">Twitter Map</a>
+	        </div>
+	        <div class="navbar-collapse collapse">
+	            <ul class="nav navbar-nav">
+	                <li class="${activeTab eq 'map' ? 'active' : ''}">
+	                    <a href="index.html">
+	                        <span class="glyphicon glyphicon-globe"></span>Map
+	                    </a>
+	                </li>
+	            </ul>
+	        </div>
+	    </div>
+	</div>
+
+	<div class="container">
+    		<h2>Keywords Filter</h2>	
+            <select id="filter" class="form-control" onChange="filter()">
+                <option value="all">All</option>
+                <option value="sports">Sports</option>
+                <option value="food">Food</option>
+                <option value="news">News</option>
+            </select>
+	</div> 
+
+	<div id="map"></div>
+  </body>
+</html>

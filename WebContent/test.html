@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Twitter Map</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 100%;  	
+      }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+    <script>
+
+    function filter(){
+    	var val=document.getElementById("filter").value;
+    	console.log("data");
+    	switch (val) {
+    		case "all":
+    			console.log("1");
+    			break;
+    		case "sports":
+    			console.log("2");
+    			break;
+    		case "food":
+    			console.log("3");
+    			break;
+    		case "news":
+    			console.log("4");
+    			break;
+    	}
+    }
+    
+
+  </script>
+  </head>
+
+  <body>
+
+	<div class="container">
+
+	                <select id="filter" class="form-control" onChange="filter()">
+	                    <option value="all">All</option>
+	                    <option value="sports">Sports</option>
+	                    <option value="food">Food</option>
+	                    <option value="news">News</option>
+	                </select>
+	</div> 
+
+	<div id="map"></div>
+  </body>
+</html>
