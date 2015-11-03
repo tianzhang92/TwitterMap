@@ -1,9 +1,15 @@
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+
+import org.apache.http.client.ClientProtocolException;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 import twitter4j.FilterQuery;
 import twitter4j.GeoLocation;
@@ -17,6 +23,7 @@ import twitter4j.TwitterStreamFactory;
 import twitter4j.conf.ConfigurationBuilder;
 
 
+
 /**
  * <p>This is a code example of Twitter4J Streaming API - sample method support.<br>
  * Usage: java twitter4j.examples.PrintSampleStream<br>
@@ -24,35 +31,37 @@ import twitter4j.conf.ConfigurationBuilder;
  *
  * @author Yusuke Yamamoto - yusuke at mac.com
  */
-public final class TweetGet {
+public final class TweetGetAll {
     /**
      * Main entry of this application.
      *
      * @param args
      */
 	// twitter API
-	private static final String myConsumerKey;
-	private static final String myConsumerSecret;
-	private static final String myAccessToken;
-	private static final String myTokenSecret;
+	
+	private static final String myConsumerKey = "";
+	private static final String myConsumerSecret = "";
+	private static final String myAccessToken = "";
+	private static final String myTokenSecret = "";
 	// Amazon RDS
-	private static final String DB_DRIVER_CLASS_NAME = "com.mysql.jdbc.Driver";
-	private static String DB_CONNECTION_URL;
-	private static String DB_USER_NAME;
-	private static String DB_PASSWORD;
-	private static String TABLE_NAME;
+	private static final String DB_DRIVER_CLASS_NAME = "";
+
+	private static String DB_CONNECTION_URL = "";
+	private static String DB_USER_NAME = "";
+	private static String DB_PASSWORD = "";
+	private static String TABLE_NAME = "";
 	// count the number of rows in the table
 	static int count = 0;
 	// category of keywords
-    static String[] sports = {"sports","Soccer","Football","Basketball","Tennis","Volleyball","Baseball","Skating"};
+    static String[] sports = {"sports","Soccer","Football","Basketball","NBA","NFL","NHL","MLB","NCAA","FIBA","FIFA","UEFA","EPL","LIGUE 1","SERIE A","La Liga","Bundesliga","Tennis","Volleyball","Baseball","Skating"};
     static String[] food = {"food", "restaurant", "pizza", "burger", "noodle", "fries","cupcake", "breakfast", "brunch"};
-    static String[] news = {"news","CNN","ABC","BBC","CCTV","NBC","Netflix","CBS"};	
-    static String[] all = {"a"};
+    static String[] news = {"news","nytimes","Xinhua","新华社","共同通信社","kyodo","YNA","KCNA","ИТАР-ТАСС","Reuters","AFP","press","CNA","РИА Новости","DPA","Agencia EFE"};	
+    static String[] keywordAll = concatAll(sports,food,news);//concatAll can only concat 3 String[] due to its definition
     
 	private final Connection connection;
 	private Statement statement;
 	
-	public TweetGet() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+	public TweetGetAll() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
 		Class.forName(DB_DRIVER_CLASS_NAME).newInstance();
 		connection = DriverManager
 				.getConnection(DB_CONNECTION_URL, DB_USER_NAME, DB_PASSWORD);
@@ -89,7 +98,7 @@ public final class TweetGet {
            .setOAuthAccessToken(myAccessToken)
            .setOAuthAccessTokenSecret(myTokenSecret);
 
-        final TweetGet tweetGet = new TweetGet();
+        final TweetGetAll tweetGet = new TweetGetAll();
          
         TwitterStream twitterStream = new TwitterStreamFactory(cb.build()).getInstance();
         StatusListener listener = new StatusListener() {
@@ -99,52 +108,104 @@ public final class TweetGet {
                 GeoLocation loc = status.getGeoLocation();            	 
                 // check whether has geoLocation information
                 if (loc != null) {
+                	
                 	String userName = status.getUser().getScreenName();
                     Long tweetID = status.getId();
                     double lati = loc.getLatitude();
-                    double longti = loc.getLongitude();
-                    String text = status.getText();
+                    double longi = loc.getLongitude();
+                    double score = 0.0;
+                    String keyword = "all";
+                    String text1 = status.getText();
+                    String text = text1.replace("'", " ");
                     java.sql.Timestamp date = new java.sql.Timestamp(status.getCreatedAt().getTime());                 	
-                	System.out.println("tweetId:" + tweetID + ", UserName:" + userName 
-                			+ ", Lati:" + lati + ", Longti:" +  longti
-                    		+ ", Text: " + text + ", Date:" + date);
-                	String keyword = tweetGet.getKeyword(text,sports,food, news, all);
-                	///*
-                	try {
-                		String sql1 = "SELECT count(*) FROM " + TABLE_NAME + "";
-                		ResultSet resultSet = tweetGet.getStatement().executeQuery(sql1);
-            	        while (resultSet.next()) {
-            	        	count = resultSet.getInt(1);
-            	        }  
-            	        System.out.println("The number of records is: " + count);
-                		if (count <= 20000) {
-            				// insert into table
-            				String sql = "INSERT INTO "
-									+ TABLE_NAME
-									+ "(tweetID,userName,Latitude,Longtitude,tweetTimeStamp,text,keyword)"
-									+ " VALUES ('" + tweetID + "','" + userName + "','" + lati
-									+ "','" + longti + "','" + date + "','" + text + "','" + keyword + "')";
-							System.out.println(sql);
-							int cRecordsInserted = tweetGet.getStatement().executeUpdate(sql);
-							System.out.println("insert tweet to DB successful, this number of inserted records is:"+ cRecordsInserted);
-							count++;
-						} else {
-							String sql = "DELETE FROM " + TABLE_NAME + "LIMIT 1";
-							tweetGet.getStatement().executeUpdate(sql);
-							count--;
-            				sql = "INSERT INTO "
-									+ TABLE_NAME
-									+ "(tweetID,userName,Latitude,Longtitude,tweetTimeStamp,text,keyword)"
-									+ " VALUES ('" + tweetID + "','" + userName + "','" + lati
-									+ "','" + longti + "','" + date + "','" + text + "','" + keyword + "')";							
-							tweetGet.getStatement().executeUpdate(sql);
-							count++;
-						}
-             	               	
-                	} catch (SQLException e) {
-                		e.printStackTrace();
-                	}
-                	//*/
+
+                    
+                    if(containKeyword(text,keywordAll)){
+                    	APIService apiService = APIService.getInstanceWithKey("");
+                        String s=null;
+    					try {
+    						s = apiService.getSentiment(text1);
+    					} catch (ClientProtocolException e1) {
+    						// TODO Auto-generated catch block
+    						e1.printStackTrace();
+    					} catch (IOException e1) {
+    						// TODO Auto-generated catch block
+    						e1.printStackTrace();
+    					}
+                        System.out.println(s);
+                        JsonObject jsonObject = new Gson().fromJson(s, JsonObject.class);
+                        JsonObject jsonObject1 = null;
+                        if(jsonObject.get("docSentiment")!=null){
+                        	jsonObject1 = jsonObject.get("docSentiment").getAsJsonObject();
+                            
+                            //System.out.println(jsonObject1);
+                            if (jsonObject1.get("score")!=null){
+                            		score = jsonObject1.get("score").getAsDouble();
+                            		//System.out.println(score);
+                            }
+                            //System.out.println(score);
+                        }
+                        
+                        
+                    	try {
+                    		if (count <= 200000) {
+                				// insert into table
+                    			String sql3 = null;
+    							if(containKeyword(text,news)){
+    								sql3 = sqlStatement(TABLE_NAME, tweetID,userName,lati,longi,date,text,"news",score);
+        							//System.out.println(sql3);
+        							tweetGet.getStatement().executeUpdate(sql3);
+        							count++;
+        							System.out.println(count);
+    							}
+    							else if(containKeyword(text,sports)){
+    								sql3 = sqlStatement(TABLE_NAME, tweetID,userName,lati,longi,date,text,"sports",score);
+        							//System.out.println(sql3);
+        							tweetGet.getStatement().executeUpdate(sql3);
+        							count++;
+        							System.out.println(count);
+    							}
+    							else{
+    								sql3 = sqlStatement(TABLE_NAME, tweetID,userName,lati,longi,date,text,"food",score);
+        							//System.out.println(sql3);
+        							tweetGet.getStatement().executeUpdate(sql3);
+        							count++;
+        							System.out.println(count);
+    							}
+    						    
+    						} else {
+    							String sql4 = "DELETE FROM " + TABLE_NAME + "LIMIT 1";
+    							tweetGet.getStatement().executeUpdate(sql4);
+    							//count--;
+    							String sql5 = null;
+    							if(containKeyword(text,news)){
+    								sql5 = sqlStatement(TABLE_NAME, tweetID,userName,lati,longi,date,text,"news",score);
+        							System.out.println(sql5);
+        							tweetGet.getStatement().executeUpdate(sql5);
+        							//count++;
+    							}
+    							else if(containKeyword(text,sports)){
+    								sql5 = sqlStatement(TABLE_NAME, tweetID,userName,lati,longi,date,text,"sports",score);
+        							System.out.println(sql5);
+        							tweetGet.getStatement().executeUpdate(sql5);
+        							//count++;
+    							}
+    							else{
+    								sql5 = sqlStatement(TABLE_NAME, tweetID,userName,lati,longi,date,text,"food",score);
+        							System.out.println(sql5);
+        							tweetGet.getStatement().executeUpdate(sql5);
+        							//count++;
+    							}
+    						}
+                 	               	
+                    	} catch (SQLException e) {
+                    		e.printStackTrace();
+                    		
+                    	}
+                    //}//end of the situation of not having a keyword
+                    }
+                	
+                	
                 }
             }
 
@@ -155,7 +216,7 @@ public final class TweetGet {
 
             @Override
             public void onTrackLimitationNotice(int numberOfLimitedStatuses) {
-                System.out.println("Got track limitation notice:" + numberOfLimitedStatuses);
+                //System.out.println("Got track limitation notice:" + numberOfLimitedStatuses);
             }
 
             @Override
@@ -167,35 +228,21 @@ public final class TweetGet {
             public void onStallWarning(StallWarning warning) {
                 System.out.println("Got stall warning:" + warning);
             }
-
+            
             @Override
             public void onException(Exception ex) {
                 ex.printStackTrace();
             }
         };
         twitterStream.addListener(listener);
-        //twitterStream.sample();
-        //provide a filter
-	    FilterQuery filterquery = new FilterQuery();
-	    String[] keyWords = tweetGet.concatAll(sports,food, news, all);
-	    	    
-	    filterquery.track(keyWords);
-	    twitterStream.filter(filterquery); 
-		
-	    Runtime.getRuntime().addShutdownHook(new Thread() {
-			@Override
-			public void run() {
-				try {
-					tweetGet.closeStatement();
-					tweetGet.closeConnection();
-				} catch (SQLException e) {
-					e.printStackTrace();
-				}
-			}
-		});
-    }
+        FilterQuery filter = new FilterQuery();
+        double[][] locations = {{-180,-90},{180,90}}; 
+        filter.locations(locations);
+        twitterStream.filter(filter);
+	    
+    }//end of main
     
-    public String[] concatAll(String[] sports, String[] food, String[] news, String[] all) {
+    public static String[] concatAll(String[] sports, String[] food, String[] news) {
     	ArrayList<String> res = new ArrayList<String>();
     	for(int i=0; i < sports.length; i++){
 			res.add(sports[i]);
@@ -205,9 +252,6 @@ public final class TweetGet {
 		}
 		for(int i=0; i < news.length; i++){
 			res.add(news[i]);
-		}
-		for(int i=0; i < all.length; i++){
-			res.add(all[i]);
 		}		
 		String[] arr = new String[res.size()];
 		for(int i=0; i<arr.length; i++){
@@ -215,33 +259,22 @@ public final class TweetGet {
 		}
 		return arr;
     }
-    
-    public String getKeyword(String text, String[] sports, String[] food, String[] news, String[] all) {
-		String keyword = null;
-		for (String str : all){
+    	
+    public static boolean containKeyword(String text, String[] allKeywords) {
+    	boolean res = false;
+		for (String str : allKeywords){
 			if(text.toLowerCase().contains(str.toLowerCase())){
-				keyword = "all";
-				break;
+				return true;
 			}
 		}
-		for (String str : sports){
-			if(text.toLowerCase().contains(str.toLowerCase())){
-				keyword = "sports";
-				break;
-			}
-		}
-		for (String str : food){
-			if(text.toLowerCase().contains(str.toLowerCase())){
-				keyword = "food";
-				break;
-			}
-		}
-		for (String str : news){
-			if(text.toLowerCase().contains(str.toLowerCase())){
-				keyword = "news";
-				break;
-			}
-		}
-		return keyword;   	
+		return res;
     }
+    public static String sqlStatement(String TABLE_NAME, long tweetID,String userName,double lat,double lon,java.sql.Timestamp date,String text, String keyword,double score){
+    	 return "INSERT INTO "
+			     + TABLE_NAME
+				 + "(tweetID,userName,Latitude,Longtitude,tweetTimeStamp,text,keyword,score)"
+				 + " VALUES ('" + tweetID + "','" + userName + "','" + lat
+				 + "','" + lon + "','" + date + "','" + text + "','" + keyword + "','" + score + "')";
+    }
+    
 }
