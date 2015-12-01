@@ -1,6 +1,6 @@
 # TwitterMap
 Assignment 1:
-Authours: Tian Zhang(tz2237), Song Gao(sg3309)
+Authors: Tian Zhang(tz2237), Song Gao(sg3309)
 
 1.	Collect twits using Twitter API.
 2.	Parse the Twits and store in Dataset. The parsed twits should have location information and a set of key words from the content of the twits.
